@@ -1,13 +1,14 @@
 from aiogram import Router, types
+from aiogram.filters import Command
 import sqlite3
-from utils.specialties import search_specialty
-from utils.department_recogniser import normalize_department
-from utils.keyboard import main_menu_keyboard
+from ..utils.specialties import search_specialty
+from ..utils.department_recogniser import normalize_department
+from ..utils.keyboard import main_menu_keyboard
 
 router = Router()
 user_state = {}
 
-@router.message(commands=["start"])
+@router.message(Command("start"))
 async def start(message: types.Message):
     user_state[message.chat.id] = {"step": "name"}
     await message.answer("👋 Привіт! Почнемо реєстрацію.\n\nВкажіть ваше ім’я та прізвище:")
@@ -62,8 +63,8 @@ async def registration(message: types.Message):
             await message.answer("❌ Спеціальність не знайдена. Спробуйте ще раз.")
             return
         elif len(matches) > 1:
-            options = "\n".join([f"{m['code']} – {m['name']}" for m in matches])
-            await message.answer(f"🔍 Знайдено декілька:\n{options}\nВведіть точніше:")
+            options = "".join([f"{m['code']} – {m['name']}" for m in matches])
+            await message.answer(f"🔍 Знайдено декілька: {options} \n Введіть точніше:")
             return
 
         specialty = matches[0]
@@ -90,9 +91,8 @@ async def registration(message: types.Message):
         conn.close()
         del user_state[chat_id]
 
-        await message.answer_sticker("CAACAgIAAxkBAAEECptmZgTTnb2J_cDN-wEHybbM51zjAwAC9wADVp29Cj6GbIPVmUE9LwQ")
         await message.answer(
-            f"🎉 Дякуємо за реєстрацію, <b>{state['name']}</b>!\n"
+            f"🎉 Дякуємо за реєстрацію, <b>{state['name']}</b>!"
             f"🔽 Оберіть, що бажаєте зробити далі:",
             reply_markup=main_menu_keyboard()
         )

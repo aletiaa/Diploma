@@ -1,11 +1,12 @@
 from aiogram import Router, types
 import sqlite3
-from utils.specialties import search_specialty
+from ..utils.specialties import search_specialty
+from aiogram.filters import Command
 
 router = Router()
 edit_state = {}
 
-@router.message(commands=["edit_profile"])
+@router.message(Command("edit_profile"))
 async def edit_profile_command(message: types.Message):
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add("🔤 Змінити ім’я", "📱 Змінити номер")

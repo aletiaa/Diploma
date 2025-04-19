@@ -4,14 +4,19 @@ import sqlite3
 from ..utils.specialties import search_specialty
 from ..utils.department_recogniser import normalize_department
 from ..utils.keyboard import main_menu_keyboard
+from datetime import datetime
 
 router = Router()
 user_state = {}
 
+ADMIN_PASSWORD = "051220044"
+
 @router.message(Command("start"))
 async def start(message: types.Message):
-    user_state[message.chat.id] = {"step": "name"}
-    await message.answer("👋 Привіт! Почнемо реєстрацію.\n\nВкажіть ваше ім’я та прізвище:")
+    user_state[message.chat.id] = {"step": "role_choice"}
+    await message.answer(
+        "Вітаю! Ви хочете увійти як користувач чи адміністратор?"
+        "Введіть <b>user</b> або <b>admin</b>:")
 
 @router.message()
 async def registration(message: types.Message):
@@ -24,11 +29,44 @@ async def registration(message: types.Message):
     state = user_state[chat_id]
     step = state.get("step")
 
+    if step == "role_choice":
+        if text.lower() == "admin":
+            state["step"] = "admin_password"
+            await message.answer("🔐 Введіть пароль адміністратора:")
+            return
+        elif text.lower() == "user":
+            state["role"] = "user"
+            state["step"] = "name"
+            await message.answer("👋 Почнемо реєстрацію.Вкажіть ваше ім’я та прізвище:")
+            return
+        else:
+            await message.answer("❗ Введіть лише <b>user</b> або <b>admin</b>.")
+            return
+
+    if step == "admin_password":
+        if text == ADMIN_PASSWORD:
+            state["role"] = "admin"
+            state["step"] = "name"
+            await message.answer("✅ Пароль підтверджено. Вкажіть ваше ім’я та прізвище:")
+        else:
+            await message.answer("❌ Невірний пароль. Спробуйте ще раз або введіть <b>user</b> щоб увійти як користувач:")
+        return
+
     if step == "name":
         state["name"] = text
-        state["step"] = "year"
-        await message.answer("📅 Вкажіть рік випуску (наприклад, 2022):")
+        state["step"] = "birth_date"
+        await message.answer("🎂 Вкажіть дату народження у форматі РРРР-ММ-ДД:")
 
+    elif step == "birth_date":
+        try:
+            birth_date = datetime.strptime(text, "%Y-%m-%d").date()
+            state["birth_date"] = str(birth_date)
+            state["step"] = "year"
+            await message.answer("📅 Вкажіть рік випуску (наприклад, 2022):")
+        except ValueError:
+            await message.answer("❗ Невірний формат. Введіть дату у форматі РРРР-ММ-ДД.")
+        return
+    
     elif step == "year":
         if not text.isdigit():
             await message.answer("❗ Введіть рік у числовому форматі.")
@@ -64,7 +102,7 @@ async def registration(message: types.Message):
             return
         elif len(matches) > 1:
             options = "".join([f"{m['code']} – {m['name']}" for m in matches])
-            await message.answer(f"🔍 Знайдено декілька: {options} \n Введіть точніше:")
+            await message.answer(f"🔍 Знайдено декілька:{options}\nВведіть точніше:")
             return
 
         specialty = matches[0]
@@ -76,19 +114,33 @@ async def registration(message: types.Message):
             await message.answer("❗ Не знайдено спеціальність у базі.")
             return
 
+
         specialty_id = row[0]
         c.execute('''
-            INSERT OR IGNORE INTO users (telegram_id, full_name, graduation_year, department_id, specialty_id)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT OR IGNORE INTO users (telegram_id, full_name, graduation_year, department_id, specialty_id, role, birth_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', (
             str(message.from_user.id),
             state['name'],
             state['year'],
             state['department_id'],
-            specialty_id
+            specialty_id,
+            state['role'],
+            state['birth_date']
         ))
         conn.commit()
         conn.close()
+
+        await message.answer(
+            f"📝 Ви зареєстровані як:"
+            f"👤 Ім’я: <b>{state['name']}</b>"
+            f"📅 Рік випуску: <b>{state['year']}</b>"
+            f"🏛 Кафедра ID: <b>{state['department_id']}</b>"
+            f"📘 Спеціальність ID: <b>{specialty_id}</b>"
+            f"🔐 Роль: <b>{state['role']}</b>"
+            "❓ Бажаєте змінити ці дані? Введіть /start для повторної реєстрації або оберіть дію нижче ⬇️"
+        )
+
         del user_state[chat_id]
 
         await message.answer(
@@ -96,3 +148,7 @@ async def registration(message: types.Message):
             f"🔽 Оберіть, що бажаєте зробити далі:",
             reply_markup=main_menu_keyboard()
         )
+
+        if state["role"] == "admin":
+            await message.answer("🔧 Ви авторизовані як адміністратор. Введіть /admin_panel щоб відкрити панель керування.")
+

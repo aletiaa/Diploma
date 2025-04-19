@@ -15,9 +15,9 @@ def init_db():
             specialty_id INTEGER,
             group_name TEXT,
             role TEXT DEFAULT 'user',
+            birth_date TEXT,
             FOREIGN KEY (department_id) REFERENCES departments(id),
-            FOREIGN KEY (specialty_id) REFERENCES specialties(id)
-        )
+            FOREIGN KEY (specialty_id) REFERENCES specialties(id))
     ''')
 
     c.execute('''
@@ -35,7 +35,7 @@ def init_db():
             UNIQUE(code, name)
         )
     ''')
-
+    
     # Додати факультет
     c.execute('INSERT OR IGNORE INTO departments (name) VALUES (?)',
               ("Теплоенергетичний факультет",))

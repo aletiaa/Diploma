@@ -20,5 +20,17 @@ def edit_profile_keyboard():
         resize_keyboard=True
     )
 
+def admin_panel_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="👥 Переглянути користувачів")],
+            [KeyboardButton(text="🔒 Заблокувати користувача"), KeyboardButton(text="✏️ Редагувати дані")],
+            [KeyboardButton(text="📰 Опублікувати новину"), KeyboardButton(text="🗑 Видалити новину")],
+            [KeyboardButton(text="📤 Надіслати матеріали")],
+            [KeyboardButton(text="🔙 Назад до меню")],
+        ],
+        resize_keyboard=True
+    )
+
 def remove_keyboard():
     return ReplyKeyboardRemove()

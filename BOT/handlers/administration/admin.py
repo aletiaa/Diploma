@@ -1,6 +1,6 @@
 from aiogram import Router, types
 from aiogram.filters import Command
-from ..utils.keyboard import admin_panel_keyboard
+from ...utils.keyboard import admin_panel_keyboard
 
 router = Router()
 

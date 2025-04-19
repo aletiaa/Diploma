@@ -3,13 +3,16 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
+from .handlers.administration import admin
+from .handlers.registration import register_admin, register_user
+from .handlers.security import registration_security
 from .config import BOT_TOKEN
 from .database.db import init_db
 from datetime import datetime
 import sqlite3
 
 # Import routers
-from .handlers import register, edit_profile, main_menu, admin
+from .handlers import edit_profile, main_menu
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
@@ -36,13 +39,14 @@ async def birthday_greeter(bot):
 async def main():
     init_db()
     dp.include_routers(
-        register.router,
+        register_admin.router,
+        registration_security.router,
+        register_user.router,
         edit_profile.router,
         main_menu.router,
         admin.router
     )
     asyncio.create_task(birthday_greeter(bot))
-    
     try:
         await dp.start_polling(bot)
     except Exception as e:

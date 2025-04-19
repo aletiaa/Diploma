@@ -34,3 +34,12 @@ def admin_panel_keyboard():
 
 def remove_keyboard():
     return ReplyKeyboardRemove()
+
+def contact_request_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📱 Надіслати мій номер", request_contact=True)]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )

@@ -1,0 +1,16 @@
+country,code,min_length,max_length
+Ukraine,+380,12,12
+Poland,+48,11,12
+Germany,+49,11,13
+France,+33,11,12
+Italy,+39,11,12
+Spain,+34,11,12
+United Kingdom,+44,12,13
+USA,+1,11,11
+Canada,+1,11,11
+Czech Republic,+420,12,12
+Slovakia,+421,12,12
+Hungary,+36,11,12
+Romania,+40,11,12
+Moldova,+373,11,11
+Turkey,+90,11,11

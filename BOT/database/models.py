@@ -21,3 +21,4 @@ class Department:
 class Specialty:
     id: int
     code: str
+    name: str

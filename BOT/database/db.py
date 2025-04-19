@@ -10,6 +10,7 @@ def init_db():
             telegram_id TEXT UNIQUE NOT NULL,
             full_name TEXT NOT NULL,
             phone_number TEXT,
+            old_phone_number TEXT,
             graduation_year INTEGER,
             department_id INTEGER,
             specialty_id INTEGER,

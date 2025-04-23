@@ -6,6 +6,7 @@ def main_menu_keyboard():
             [KeyboardButton(text="🔎 Пошук випускника")],
             [KeyboardButton(text="📰 Отримати новини")],
             [KeyboardButton(text="📅 Переглянути події")],
+            [KeyboardButton(text="📅 Редагувати профіль")],
         ],
         resize_keyboard=True
     )
@@ -21,16 +22,14 @@ def edit_profile_keyboard():
     )
 
 def admin_panel_keyboard():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="👥 Переглянути користувачів")],
-            [KeyboardButton(text="🔒 Заблокувати користувача"), KeyboardButton(text="✏️ Редагувати дані")],
-            [KeyboardButton(text="📰 Опублікувати новину"), KeyboardButton(text="🗑 Видалити новину")],
-            [KeyboardButton(text="📤 Надіслати матеріали")],
-            [KeyboardButton(text="🔙 Назад до меню")],
-        ],
-        resize_keyboard=True
-    )
+    kb = [
+        [KeyboardButton(text="📰 Додати новину"), KeyboardButton(text="📅 Додати подію")],
+        [KeyboardButton(text="📆 Переглянути тижневі події/новини"), KeyboardButton(text="🔐 Управління доступом")],
+        [KeyboardButton(text="⬅️ Повернутись")]
+    ]
+    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
+
+
 
 def remove_keyboard():
     return ReplyKeyboardRemove()

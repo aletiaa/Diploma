@@ -5,6 +5,8 @@ import json
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_TELEGRAM_IDS = []
+ADMIN_PASSWORD = "05122004"
+SUPER_ADMIN_ID = 511884422
 
 # Load admin IDs from config and external file
 try:

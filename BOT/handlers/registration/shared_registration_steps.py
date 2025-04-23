@@ -5,7 +5,7 @@ from ...utils.specialties import search_specialty
 from ...utils.department_recogniser import normalize_department
 from ...utils.keyboard import contact_request_keyboard, main_menu_keyboard
 from ...utils.phone_validator import is_valid_phone
-from .state import user_state
+from ..registration.state import user_state
 
 
 async def handle_contact(message: types.Message, role: str):
@@ -171,13 +171,24 @@ async def finalize_registration(message: types.Message):
     conn.commit()
     conn.close()
 
+    # Отримати назву кафедри
+    conn = sqlite3.connect("alumni.db")
+    c = conn.cursor()
+    c.execute("SELECT name FROM departments WHERE id = ?", (state["department_id"],))
+    department_name = c.fetchone()[0]
+
+    # Отримати назву спеціальності
+    c.execute("SELECT name FROM specialties WHERE id = ?", (state["specialty_id"],))
+    specialty_name = c.fetchone()[0]
+    conn.close()
+
     await message.answer(
         f"📝 Ви зареєстровані як:\n"
         f"👤 Ім’я: <b>{state['name']}</b>\n"
         f"📱 Телефон: <b>{state['phone_number']}</b>\n"
         f"📅 Рік випуску: <b>{state['year']}</b>\n"
-        f"🏛 Кафедра ID: <b>{state['department_id']}</b>\n"
-        f"📘 Спеціальність ID: <b>{state['specialty_id']}</b>\n"
+        f"🏛 Кафедра: <b>{department_name}</b>\n"
+        f"📘 Спеціальність: <b>{specialty_name}</b>\n"
         f"🔐 Роль: <b>{state['role']}</b>\n\n"
         "❓ Бажаєте змінити ці дані? Введіть /start для повторної реєстрації або оберіть дію нижче ⬇️"
     )

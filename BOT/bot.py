@@ -3,37 +3,45 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-from .handlers.administration import admin, manage_access, publish_events, publish_news, admin_panel, view_weekly
-from .handlers.registration import register_admin, register_user
-from .handlers.security import registration_security
-from .handlers import edit_profile, main_menu
-from .birthday.birthday_greeter import birthday_greeter 
-from .config import BOT_TOKEN
-from .database.db import init_db
 
+from .handlers.registration import register_admin, register_user, register_start  # Підключаємо обробники реєстрації
+from .handlers.login import login_user, login_admin
+from .handlers.edit import edit_profile_user, edit_profile_admin
+from .handlers.news import news_admin
+from .handlers.admin import admin_panel
+from .database.db import init_db                     # Ініціалізація БД
+from .config import BOT_TOKEN                        # Токен бота
+
+# Налаштування логування
 logging.basicConfig(level=logging.INFO)
+
+# Ініціалізація бота
 bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
-dp = Dispatcher(bot=bot, storage=MemoryStorage())
+dp = Dispatcher(storage=MemoryStorage())
 
 async def main():
+    # Ініціалізація БД
     init_db()
+
+    # Видалення попередніх вебхуків
     await bot.delete_webhook(drop_pending_updates=True)
 
-    dp.include_routers(
-        register_admin.router,
-        registration_security.router,
-        register_user.router,
-        edit_profile.router,
-        main_menu.router,
-        admin_panel.router,
-        publish_news.router,
-        publish_events.router,
-        view_weekly.router, 
-        manage_access.router
-    )
+    # Підключення обробників
+    dp.include_router(register_user.router)
+    dp.include_router(register_admin.router)
+    dp.include_router(register_start.router)
+    dp.include_router(login_user.router)
+    dp.include_router(login_admin.router)
+    dp.include_router(edit_profile_user.router)
+    dp.include_router(edit_profile_admin.router)
+    dp.include_router(admin_panel.router)
+    dp.include_router(news_admin.router)
+    # Майбутні модулі:
+    # dp.include_router(edit_profile.router)
+    # dp.include_router(main_menu.router)
+    # dp.include_router(registration_security.router)
 
-    asyncio.create_task(birthday_greeter(bot))  # Запуск окремого модуля
-
+    logging.info("🤖 Бот запущено!")
     try:
         await dp.start_polling(bot)
     except Exception as e:

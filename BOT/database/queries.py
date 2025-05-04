@@ -96,3 +96,61 @@ def user_exists(telegram_id: str) -> bool:
     exists = c.fetchone() is not None
     conn.close()
     return exists
+
+def create_event(title, description, event_datetime, max_seats):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        '''INSERT INTO events (title, description, event_datetime, max_seats, available_seats)
+           VALUES (?, ?, ?, ?, ?)''',
+        (title, description, event_datetime, max_seats, max_seats)
+    )
+    conn.commit()
+    conn.close()
+
+def get_all_events():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM events ORDER BY event_datetime')
+    events = cursor.fetchall()
+    conn.close()
+    return events
+
+def get_event_by_id(event_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM events WHERE id = ?', (event_id,))
+    event = cursor.fetchone()
+    conn.close()
+    return event
+
+def update_event(event_id, title, description, event_datetime, max_seats, available_seats):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        '''UPDATE events
+           SET title = ?, description = ?, event_datetime = ?, max_seats = ?, available_seats = ?
+           WHERE id = ?''',
+        (title, description, event_datetime, max_seats, available_seats, event_id)
+    )
+    conn.commit()
+    conn.close()
+
+def delete_event(event_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM events WHERE id = ?', (event_id,))
+    conn.commit()
+    conn.close()
+
+def reserve_seat(event_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE events SET available_seats = available_seats - 1
+        WHERE id = ? AND available_seats > 0
+    ''', (event_id,))
+    affected = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return affected > 0

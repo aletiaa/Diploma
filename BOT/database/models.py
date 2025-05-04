@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional
 
-# Користувач або адміністратор
 @dataclass
 class User:
     id: Optional[int]  # None для нових користувачів
@@ -9,6 +8,7 @@ class User:
     full_name: str
     phone_number: str
     old_phone_number: Optional[str]
+    enrollment_year: Optional[int]
     graduation_year: Optional[int]
     department_id: Optional[int]
     specialty_id: Optional[int]
@@ -16,6 +16,8 @@ class User:
     role: str  # 'user' або 'admin'
     access_level: Optional[str]  # 'user', 'admin_limited', 'admin_super'
     birth_date: Optional[str]
+    failed_attempts: int = 0
+    last_failed_login_time: Optional[str] = None
 
 # Кафедра (хоч одна, але залишимо для структури)
 @dataclass
@@ -40,3 +42,15 @@ class Admin:
     role: str  # 'admin'
     access_level: str  # 'admin_limited' або 'admin_super'
     password: str
+
+# Збережене медіа від користувача
+@dataclass
+class MediaUpload:
+    id: Optional[int]
+    telegram_id: str
+    file_id: str
+    file_unique_id: Optional[str]
+    file_type: str  # 'photo', 'video', 'document', ...
+    chat_id: Optional[str] = None
+    message_id: Optional[int] = None
+    sent_at: Optional[str] = None

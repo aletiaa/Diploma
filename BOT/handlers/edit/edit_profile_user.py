@@ -18,6 +18,7 @@ class EditProfile(StatesGroup):
     editing_phone_number = State()
     editing_group_name = State()
     editing_specialty = State()
+    editing_enrollment_year = State()
     editing_graduation_year = State()
     editing_birth_date = State()
 
@@ -44,13 +45,13 @@ async def show_edit_profile_menu_callback(callback_query: CallbackQuery, state: 
         birth_date_info = birth_date if birth_date else "Не вказано"
 
         text = (
-            f"📋 <b>Ваші дані:</b>\n"
-            f"👤 ПІБ: {full_name}\n"
-            f"📱 Телефон: {phone}\n"
-            f"🎓 Група: {group}\n"
-            f"📘 Спеціальність: {specialty_info}\n"
-            f"📅 Рік випуску: {grad_year_info}\n"
-            f"🎂 Дата народження: {birth_date_info}\n\n"
+            f"<b>Ваші дані:</b>\n"
+            f"ПІБ: {full_name}\n"
+            f"Телефон: {phone}\n"
+            f"Група: {group}\n"
+            f"Спеціальність: {specialty_info}\n"
+            f"Рік випуску: {grad_year_info}\n"
+            f"Дата народження: {birth_date_info}\n\n"
             f"Що саме ви хочете змінити?"
         )
     else:
@@ -123,6 +124,10 @@ async def choose_field_to_edit(callback_query: CallbackQuery, state: FSMContext)
     elif action == "edit_specialty":
         await callback_query.message.answer("Введіть код або частину назви спеціальності:")
         await state.set_state(EditProfile.editing_specialty)
+
+    elif action == "edit_enrollment_year":
+        await callback_query.message.answer("Введіть новий рік вступу (наприклад: 2020):")
+        await state.set_state(EditProfile.editing_enrollment_year)
 
     elif action == "edit_graduation_year":
         await callback_query.message.answer("Введіть новий рік випуску (наприклад: 2022):")
@@ -211,6 +216,29 @@ async def edit_specialty(message: Message, state: FSMContext):
         await message.answer("❌ Не знайдено спеціальність в базі. Спробуйте ще.")
 
     conn.close()
+    await show_edit_profile_menu_message(message, state)
+
+# Зміна року вступу
+@router.message(EditProfile.editing_enrollment_year)
+async def edit_enrollment_year(message: Message, state: FSMContext):
+    year_str = message.text.strip()
+    if not year_str.isdigit():
+        await message.answer("❌ Рік вступу має бути числом. Введіть ще раз:")
+        return
+
+    year = int(year_str)
+    current_year = datetime.today().year
+    if year > current_year or year < 1900:
+        await message.answer(f"❌ Рік вступу має бути між 1900 та {current_year}. Введіть ще раз:")
+        return
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET enrollment_year = ? WHERE telegram_id = ?', (year, str(message.from_user.id)))
+    conn.commit()
+    conn.close()
+
+    await message.answer(f"✅ Рік вступу оновлено на: {year}")
     await show_edit_profile_menu_message(message, state)
 
 # Зміна року випуску

@@ -5,7 +5,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.exceptions import TelegramBadRequest
 from ...utils.phone_validator import is_valid_phone
-from ...utils.keyboard import admin_main_menu_keyboard, view_users_sort_keyboard
+from ...utils.keyboard import admin_main_menu_keyboard, view_users_sort_keyboard, user_management_keyboard
+from ...database.queries import get_connection
 
 router = Router()
 
@@ -15,6 +16,14 @@ class AdminPanelStates(StatesGroup):
     waiting_phone_to_block = State()
     waiting_phone_to_change_access = State()
     waiting_new_access_level = State()
+
+@router.callback_query(lambda c: c.data == "user_management_menu")
+async def open_user_management_menu(callback_query: CallbackQuery, state: FSMContext):
+    await callback_query.message.edit_text(
+        "👥 <b>Робота з користувачами:</b>\nОберіть дію нижче:",
+        reply_markup=user_management_keyboard,
+        parse_mode="HTML"
+    )
 
 # Після входу – показати адмін-панель
 async def show_admin_panel(message: Message | CallbackQuery, state: FSMContext):
@@ -203,3 +212,34 @@ def user_exists_by_phone(phone_number: str) -> bool:
     exists = c.fetchone() is not None
     conn.close()
     return exists
+
+@router.callback_query(lambda c: c.data == "view_uploaded_files")
+async def view_uploaded_files(callback: CallbackQuery, state: FSMContext):
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT telegram_id, file_id, file_type, sent_at
+        FROM media_uploads
+        ORDER BY sent_at DESC
+        LIMIT 10
+    ''')
+    files = cursor.fetchall()
+    conn.close()
+
+    if not files:
+        await callback.message.answer("❌ Жодного файлу ще не надіслано.")
+        return
+
+    for idx, (user_id, file_id, file_type, sent_at) in enumerate(files, start=1):
+        caption = f"#{idx} 📅 {sent_at}\n👤 Користувач: <code>{user_id}</code>"
+
+        try:
+            if file_type == "photo":
+                await callback.message.bot.send_photo(chat_id=callback.from_user.id, photo=file_id, caption=caption, parse_mode="HTML")
+            else:
+                await callback.message.bot.send_message(chat_id=callback.from_user.id, text=f"{caption}\n🔗 Файл: {file_id}", parse_mode="HTML")
+        except TelegramBadRequest as e:
+            await callback.message.answer(f"⚠️ Помилка при відправленні файлу #{idx}.")
+
+    await callback.message.answer("⬅️ Повертаємось до адмін-панелі.", reply_markup=admin_main_menu_keyboard)

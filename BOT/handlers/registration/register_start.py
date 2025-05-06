@@ -32,17 +32,20 @@ async def show_help(message: Message):
         "Підтримка: alina.seikauskaite3@gmail.com"
     )
     await message.answer(help_text)
-    
-    
-from aiogram.types import CallbackQuery
 
 @router.callback_query(lambda c: c.data == 'login_user')
 async def callback_login_user(callback_query: CallbackQuery, state: FSMContext):
     await callback_query.message.answer("Ви обрали вхід як користувач.\nВведіть ваш номер телефону:")
-    await state.set_state(UserLogin.phone_number)
+    try:
+        await state.set_state(UserLogin.phone_number)
+    except Exception:
+        await callback_query.message.answer("⚠️ Сталася помилка при встановленні стану. Спробуйте ще раз.")
 
 @router.callback_query(lambda c: c.data == 'login_admin')
 async def callback_login_admin(callback_query: CallbackQuery, state: FSMContext):
     await callback_query.message.answer("Ви обрали вхід як адміністратор.\nВведіть ваш номер телефону:")
-    await state.set_state(AdminLogin.phone_number)
+    try:
+        await state.set_state(AdminLogin.phone_number)
+    except Exception:
+        await callback_query.message.answer("⚠️ Сталася помилка при встановленні стану. Спробуйте ще раз.")
 

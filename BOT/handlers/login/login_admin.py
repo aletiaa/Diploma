@@ -7,7 +7,6 @@ from aiogram.fsm.state import State, StatesGroup
 from ...utils.phone_validator import is_valid_phone
 from ...database.queries import get_connection
 from ...utils.keyboard import admin_main_menu_keyboard
-from ...handlers.admin.admin_panel import show_admin_panel
 
 router = Router()
 

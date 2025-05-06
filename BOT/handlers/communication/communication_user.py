@@ -3,8 +3,11 @@ from aiogram.types import CallbackQuery
 from aiogram.fsm.context import FSMContext
 from ...utils.keyboard import communication_user_menu_keyboard, user_main_menu_keyboard
 from ...database.queries import get_connection
+from pathlib import Path
+import csv
 
 router = Router()
+CHAT_CSV_PATH = Path("chat_links.csv")
 
 @router.callback_query(lambda c: c.data == "user_communication_menu")
 async def open_communication_menu(callback: CallbackQuery, state: FSMContext):
@@ -14,62 +17,93 @@ async def open_communication_menu(callback: CallbackQuery, state: FSMContext):
         reply_markup=communication_user_menu_keyboard,
         parse_mode="HTML"
     )
+    
 
-@router.callback_query(lambda c: c.data in ["chat_by_group", "chat_by_specialty", "chat_by_year"])
-async def send_communication_link(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(lambda c: c.data == "chat_by_group")
+async def send_group_chat_link(callback: CallbackQuery, state: FSMContext):
     telegram_id = str(callback.from_user.id)
-    chat_type = {
-        "chat_by_group": "group",
-        "chat_by_specialty": "specialty",
-        "chat_by_year": "year"
-    }[callback.data]
 
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Отримуємо відповідне значення з таблиці users
-    cursor.execute(f'''
-        SELECT { 
-            "group_name" if chat_type == "group" else
-            "specialty_id" if chat_type == "specialty" else
-            "enrollment_year"
-        }
-        FROM users
-        WHERE telegram_id = ?
-    ''', (telegram_id,))
+    cursor.execute("SELECT group_name FROM users WHERE telegram_id = ?", (telegram_id,))
     result = cursor.fetchone()
-
-    if not result or not result[0]:
-        await callback.message.answer("⚠️ Неможливо знайти ваше значення для пошуку чату.")
-        return
-
-    user_value = result[0]
-
-    # Якщо це спеціальність — отримаємо її код
-    if chat_type == "specialty":
-        cursor.execute("SELECT code FROM specialties WHERE id = ?", (user_value,))
-        specialty_result = cursor.fetchone()
-        if not specialty_result:
-            await callback.message.answer("⚠️ Спеціальність не знайдено.")
-            return
-        user_value = specialty_result[0]
-
-    # Шукаємо чат
-    cursor.execute('''
-        SELECT link FROM communication_chats
-        WHERE chat_type = ? AND match_value = ?
-    ''', (chat_type, str(user_value)))
-    chat = cursor.fetchone()
     conn.close()
 
-    if chat:
-        await callback.message.answer(
-            f"🔗 Ось посилання на чат {chat_type}:\n{chat[0]}"
-        )
-    else:
-        await callback.message.answer("❌ Чат ще не створено адміністратором.")
+    if not result:
+        await callback.message.answer("❌ Не вдалося отримати вашу групу.")
+        return
 
-# Повернення назад
-@router.callback_query(lambda c: c.data == "back_to_user_menu")
-async def back_to_main_menu(callback: CallbackQuery, state: FSMContext):
-    await callback.message.edit_text("🏠 Головне меню:", reply_markup=user_main_menu_keyboard, parse_mode="HTML")
+    group_name = result[0]
+
+    # Пошук у CSV
+    if not CHAT_CSV_PATH.exists():
+        await callback.message.answer("📭 Жодного чату ще не створено.")
+        return
+
+    with CHAT_CSV_PATH.open("r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row["group"] == group_name:
+                await callback.message.answer(f"🔗 Ось ваше посилання на чат:\n{row['link']}")
+                return
+
+    await callback.message.answer("❌ Чат для вашої групи ще не створено адміністратором.")
+
+
+@router.callback_query(lambda c: c.data in ["chat_by_specialty", "chat_by_enrollment", "chat_by_graduation"])
+async def send_communication_link(callback: CallbackQuery, state: FSMContext):
+    telegram_id = str(callback.from_user.id)
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    if callback.data == "chat_by_specialty":
+        cursor.execute("SELECT specialty_id FROM users WHERE telegram_id = ?", (telegram_id,))
+        result = cursor.fetchone()
+        if not result:
+            await callback.message.answer("❌ Не вдалося отримати вашу спеціальність.")
+            return
+        specialty_id = result[0]
+        cursor.execute("SELECT code FROM specialties WHERE id = ?", (specialty_id,))
+        code_result = cursor.fetchone()
+        if not code_result:
+            await callback.message.answer("❌ Не вдалося знайти код спеціальності.")
+            return
+        user_value = code_result[0]
+        chat_type = "specialty"
+    elif callback.data == "chat_by_enrollment":
+        cursor.execute("SELECT enrollment_year FROM users WHERE telegram_id = ?", (telegram_id,))
+        result = cursor.fetchone()
+        if not result:
+            await callback.message.answer("❌ Не вдалося отримати рік вступу.")
+            return
+        user_value = str(result[0])
+        chat_type = "enrollment_year"
+    elif callback.data == "chat_by_graduation":
+        cursor.execute("SELECT graduation_year FROM users WHERE telegram_id = ?", (telegram_id,))
+        result = cursor.fetchone()
+        if not result:
+            await callback.message.answer("❌ Не вдалося отримати рік випуску.")
+            return
+        user_value = str(result[0])
+        chat_type = "graduation_year"
+    else:
+        await callback.message.answer("❌ Невідомий тип чату.")
+        conn.close()
+        return
+
+    conn.close()
+
+    if not CHAT_CSV_PATH.exists():
+        await callback.message.answer("📭 Жодного чату ще не створено.")
+        return
+
+    with CHAT_CSV_PATH.open("r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row.get(chat_type) == user_value:
+                await callback.message.answer(f"🔗 Ось ваше посилання на чат:\n{row['link']}")
+                return
+
+    await callback.message.answer("❌ Чат ще не створено адміністратором.")

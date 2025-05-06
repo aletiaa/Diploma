@@ -1,5 +1,7 @@
 import sqlite3
 
+from .default import populate_defaults
+
 DB_NAME = "alumni.db"
 
 def init_db():
@@ -19,8 +21,8 @@ def init_db():
             department_id INTEGER,
             specialty_id INTEGER,
             group_name TEXT,
-            role TEXT DEFAULT 'user',  -- 'user' або 'admin'
-            access_level TEXT DEFAULT 'user',  -- 'user', 'admin_limited', 'admin_super'
+            role TEXT DEFAULT 'user',
+            access_level TEXT DEFAULT 'user',
             birth_date TEXT,
             failed_attempts INTEGER DEFAULT 0,
             last_failed_login_time TEXT,
@@ -37,8 +39,21 @@ def init_db():
             full_name TEXT NOT NULL,
             phone_number TEXT,
             role TEXT DEFAULT 'admin_limited',
-            access_level TEXT DEFAULT 'admin_limited',  -- 'admin_limited', 'admin_super'
-            password TEXT NOT NULL
+            access_level TEXT DEFAULT 'admin_limited',
+            password TEXT NOT NULL,
+            is_super INTEGER DEFAULT 0
+        )
+    ''')
+
+    # Таблиця запитів на адмінство
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS admin_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            telegram_id TEXT UNIQUE,
+            full_name TEXT NOT NULL,
+            phone_number TEXT NOT NULL,
+            password TEXT NOT NULL,
+            requested_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     ''')
 
@@ -71,31 +86,19 @@ def init_db():
         )
     ''')
 
-    # Таблиця подій
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS events (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            short_description TEXT NOT NULL,
-            place TEXT NOT NULL,
-            event_datetime TEXT NOT NULL,
-            seats INTEGER NOT NULL,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
     # Таблиця чатів для спілкування
     c.execute('''
         CREATE TABLE IF NOT EXISTS communication_chats (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            chat_type TEXT NOT NULL,  -- 'group', 'enrollment_year', 'specialty'
-            match_value TEXT NOT NULL,  -- Наприклад, "ТВ-12", "2020", "121"
-            link TEXT NOT NULL,  -- Посилання на чат
-            created_by TEXT NOT NULL,  -- telegram_id адміністратора
+            chat_type TEXT NOT NULL,
+            match_value TEXT NOT NULL,
+            link TEXT NOT NULL,
+            created_by TEXT NOT NULL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
+
+    # Таблиця чатів з унікальними значеннями
     c.execute('''
         CREATE TABLE IF NOT EXISTS chats (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -105,12 +108,13 @@ def init_db():
             UNIQUE(chat_type, value)
         )
     ''')
-    
+
+    # Таблиця файлів
     c.execute('''
         CREATE TABLE IF NOT EXISTS user_files (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             telegram_id TEXT NOT NULL,
-            file_type TEXT NOT NULL,       -- 'photo', 'video', 'document' тощо
+            file_type TEXT NOT NULL,
             file_id TEXT NOT NULL,
             file_unique_id TEXT,
             caption TEXT,
@@ -118,19 +122,21 @@ def init_db():
             FOREIGN KEY (telegram_id) REFERENCES users(telegram_id)
         )
     ''')
-    
+
+    # Таблиця подій
     c.execute('''
-       CREATE TABLE IF NOT EXISTS events (
+        CREATE TABLE IF NOT EXISTS events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
             description TEXT NOT NULL,
-            event_datetime TEXT NOT NULL,  -- ISO-формат: YYYY-MM-DDTHH:MM:SS
+            event_datetime TEXT NOT NULL,
             max_seats INTEGER NOT NULL,
             available_seats INTEGER NOT NULL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
+
+    # Таблиця реєстрацій на події
     c.execute('''
         CREATE TABLE IF NOT EXISTS registrations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -138,14 +144,14 @@ def init_db():
             event_id INTEGER NOT NULL,
             registered_at TEXT DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(telegram_id, event_id)
-        )     
+        )
     ''')
 
-    # Додати факультет за замовчуванням
+    # Додавання факультету за замовчуванням
     c.execute('INSERT OR IGNORE INTO departments (name) VALUES (?)',
               ("Теплоенергетичний факультет",))
 
-    # Додати спеціальності
+    # Додавання спеціальностей
     specialties = [
         ("121", "Інженерія програмного забезпечення"),
         ("122", "Комп’ютерні науки"),
@@ -157,5 +163,21 @@ def init_db():
     for code, name in specialties:
         c.execute('INSERT OR IGNORE INTO specialties (code, name) VALUES (?, ?)', (code, name))
 
+    # Додавання супер-адміністратора
+    SUPER_ADMIN_ID = "511884422"
+    SUPER_ADMIN_NAME = "Аліна Сейкаускайте"
+    SUPER_ADMIN_PHONE = "+447706698818"
+    SUPER_ADMIN_PASSWORD = "05122004"
+
+    c.execute("SELECT 1 FROM admins WHERE telegram_id = ?", (SUPER_ADMIN_ID,))
+    if not c.fetchone():
+        c.execute('''
+            INSERT INTO admins (telegram_id, full_name, phone_number, role, access_level, password)
+            VALUES (?, ?, ?, 'admin_super', 'admin_super', ?)
+        ''', (SUPER_ADMIN_ID, SUPER_ADMIN_NAME, SUPER_ADMIN_PHONE, SUPER_ADMIN_PASSWORD))
+
     conn.commit()
     conn.close()
+
+init_db()
+populate_defaults()

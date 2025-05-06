@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.exceptions import TelegramBadRequest
 from ...utils.phone_validator import is_valid_phone
-from ...utils.keyboard import admin_main_menu_keyboard, view_users_sort_keyboard, user_management_keyboard
+from ...utils.keyboard import admin_main_menu_keyboard, view_users_sort_keyboard, user_management_keyboard, limited_admin_menu_keyboard
 from ...database.queries import get_connection
 
 router = Router()
@@ -17,6 +17,23 @@ class AdminPanelStates(StatesGroup):
     waiting_phone_to_change_access = State()
     waiting_new_access_level = State()
 
+def get_admin_access_level(telegram_id: str) -> str | None:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT access_level FROM admins WHERE telegram_id = ?", (telegram_id,))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None
+
+def super_admin_only(func):
+    async def wrapper(callback: CallbackQuery, *args, **kwargs):
+        access_level = get_admin_access_level(str(callback.from_user.id))
+        if access_level != "admin_super":
+            await callback.message.answer("🚫 У вас немає прав для цієї дії.")
+            return
+        return await func(callback, *args, **kwargs)
+    return wrapper
+
 @router.callback_query(lambda c: c.data == "user_management_menu")
 async def open_user_management_menu(callback_query: CallbackQuery, state: FSMContext):
     await callback_query.message.edit_text(
@@ -26,17 +43,23 @@ async def open_user_management_menu(callback_query: CallbackQuery, state: FSMCon
     )
 
 # Після входу – показати адмін-панель
-async def show_admin_panel(message: Message | CallbackQuery, state: FSMContext):
-    text = "🔧 <b>Адмін-панель:</b>\nОберіть дію нижче:"
-    try:
-        if isinstance(message, CallbackQuery):
-            await message.message.edit_text(text, reply_markup=admin_main_menu_keyboard, parse_mode="HTML")
+@router.callback_query(lambda c: c.data == "login_admin_menu")
+async def show_admin_menu(callback: CallbackQuery):
+    telegram_id = str(callback.from_user.id)
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT access_level FROM admins WHERE telegram_id = ?", (telegram_id,))
+    result = cursor.fetchone()
+    conn.close()
+
+    if result:
+        access_level = result[0]
+        if access_level == "admin_super":
+            await callback.message.answer("🔧 Адмін-панель (повний доступ):", reply_markup=admin_main_menu_keyboard)
         else:
-            await message.answer(text, reply_markup=admin_main_menu_keyboard, parse_mode="HTML")
-    except TelegramBadRequest as e:
-        if "message is not modified" not in str(e):
-            raise
-    await state.clear()
+            await callback.message.answer("👮 Адмін-панель (обмежений доступ):", reply_markup=limited_admin_menu_keyboard)
+    else:
+        await callback.message.answer("❌ Ви не авторизовані як адміністратор.")
 
 # 📊 Показати варіанти сортування користувачів
 @router.callback_query(lambda c: c.data == "view_users")
@@ -141,7 +164,7 @@ async def delete_user_confirm(message: Message, state: FSMContext):
         conn.close()
         await message.answer("✅ Користувача успішно видалено.")
 
-    await show_admin_panel(message, state)
+    await show_admin_menu(message, state)
 
 # 🚫 Заблокувати
 @router.callback_query(lambda c: c.data == "block_user")
@@ -166,26 +189,29 @@ async def block_user_confirm(message: Message, state: FSMContext):
         conn.close()
         await message.answer("🚫 Користувача заблоковано.")
 
-    await show_admin_panel(message, state)
+    await show_admin_menu(message, state)
 
 # 🔐 Змінити доступ
 @router.callback_query(lambda c: c.data == "change_access")
+@super_admin_only
 async def change_access_prompt(callback_query: CallbackQuery, state: FSMContext):
     await callback_query.message.answer("📱 Введіть номер телефону користувача, чий доступ потрібно змінити:")
     await state.set_state(AdminPanelStates.waiting_phone_to_change_access)
 
 @router.message(AdminPanelStates.waiting_phone_to_change_access)
+@super_admin_only
 async def change_access_level(message: Message, state: FSMContext):
     phone = message.text.strip()
     await state.update_data(phone=phone)
     if not user_exists_by_phone(phone):
         await message.answer("❌ Користувача не знайдено.")
-        await show_admin_panel(message, state)
+        await show_admin_menu(message, state)
     else:
         await message.answer("🔐 Введіть новий рівень доступу ('user', 'admin_limited', 'admin_super'):")
         await state.set_state(AdminPanelStates.waiting_new_access_level)
 
 @router.message(AdminPanelStates.waiting_new_access_level)
+@super_admin_only
 async def confirm_access_change(message: Message, state: FSMContext):
     access = message.text.strip()
     data = await state.get_data()
@@ -202,7 +228,7 @@ async def confirm_access_change(message: Message, state: FSMContext):
     conn.close()
 
     await message.answer(f"✅ Доступ користувача змінено на: {access}")
-    await show_admin_panel(message, state)
+    await show_admin_menu(message, state)
 
 # Перевірка існування користувача за телефоном
 def user_exists_by_phone(phone_number: str) -> bool:
@@ -214,14 +240,15 @@ def user_exists_by_phone(phone_number: str) -> bool:
     return exists
 
 @router.callback_query(lambda c: c.data == "view_uploaded_files")
-async def view_uploaded_files(callback: CallbackQuery, state: FSMContext):
+@super_admin_only
+async def view_uploaded_files(callback: CallbackQuery, state: FSMContext, **kwargs):
     conn = get_connection()
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT telegram_id, file_id, file_type, sent_at
-        FROM media_uploads
-        ORDER BY sent_at DESC
+        SELECT telegram_id, file_id, file_type, upload_time
+        FROM user_files
+        ORDER BY upload_time DESC
         LIMIT 10
     ''')
     files = cursor.fetchall()
@@ -231,8 +258,8 @@ async def view_uploaded_files(callback: CallbackQuery, state: FSMContext):
         await callback.message.answer("❌ Жодного файлу ще не надіслано.")
         return
 
-    for idx, (user_id, file_id, file_type, sent_at) in enumerate(files, start=1):
-        caption = f"#{idx} 📅 {sent_at}\n👤 Користувач: <code>{user_id}</code>"
+    for idx, (user_id, file_id, file_type, upload_time) in enumerate(files, start=1):
+        caption = f"#{idx} 📅 {upload_time}\n👤 Користувач: <code>{user_id}</code>"
 
         try:
             if file_type == "photo":

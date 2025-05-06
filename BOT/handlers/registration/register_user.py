@@ -1,7 +1,7 @@
 import sqlite3
 import re
 from aiogram import Router
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -47,11 +47,16 @@ async def callback_register_admin(callback_query: CallbackQuery):
 @router.callback_query(lambda c: c.data == 'help_info')
 async def callback_help(callback_query: CallbackQuery):
     help_text = (
-        "ℹ️ Допомога:\n"
-        "- Якщо ви студент або випускник – використовуйте /register_user або кнопку.\n"
-        "- Якщо ви адміністрація – використовуйте /register_admin або кнопку.\n"
-        "- Для повернення до меню – /menu.\n\n"
-        "Підтримка: example@support.com"
+        "👋 <b>Цей бот створений для випускників кафедри цифрових технологій в енергетиці</b>.\n\n"
+        "Тут ви можете:\n"
+        "🔹 Пройти реєстрацію або увійти в акаунт\n"
+        "🔹 Редагувати свій профіль\n"
+        "🔹 Отримувати актуальні новини\n"
+        "🔹 Переглядати майбутні події та реєструватися на них\n"
+        "🔹 Надсилати фото й відео (наприклад, з минулих подій)\n"
+        "🔹 Знаходити чати для спілкування з одногрупниками або спеціальністю\n\n"
+        "🔽 Використовуйте кнопки або команди меню для навігації.\n"
+        "Допомога: alina.seikauskaite3@gmail.com"
     )
     await callback_query.message.answer(help_text)
 
@@ -96,7 +101,7 @@ async def process_phone_number(message: Message, state: FSMContext):
         return
 
     await state.update_data(phone_number=phone)
-    await message.answer("Чи змінювався номер телефону з часу випуску? (так/ні)")
+    await message.answer("Чи змінювався номер телефону з часу випуску? (так/ні)", reply_markup=ReplyKeyboardRemove())
     await state.set_state(Registration.old_phone_number_check)
 
 @router.message(Registration.old_phone_number_check)
@@ -187,7 +192,7 @@ async def process_specialty_input(message: Message, state: FSMContext):
     
     if len(results) == 1:
         specialty = results[0]
-        await state.update_data(specialty_id=specialty['code'])
+        await state.update_data(specialty_id=specialty['id'])
         await message.answer(f"Знайдено спеціальність: {specialty['code']} - {specialty['name']}")
         await message.answer("Введіть вашу групу:")
         await state.set_state(Registration.group_name)
@@ -208,7 +213,7 @@ async def process_specialty_selection(message: Message, state: FSMContext):
     try:
         choice = int(message.text.strip()) - 1
         specialty = options[choice]
-        await state.update_data(specialty_id=specialty['code'])
+        await state.update_data(specialty_id=specialty['id'])
         await message.answer(f"Обрано: {specialty['code']} - {specialty['name']}")
         await message.answer("Введіть вашу групу:")
         await state.set_state(Registration.group_name)
@@ -252,8 +257,8 @@ async def process_birth_date(message: Message, state: FSMContext):
         today = datetime.today()
         age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
         
-        if age < 16:
-            await message.answer("Вам має бути щонайменше 16 років для реєстрації. Введіть іншу дату народження:")
+        if age < 16 or age > 95:
+            await message.answer("Вам має бути щонайменше 16 років та, на жаль, не більше 95 для реєстрації. Введіть іншу дату народження:")
             return
 
     except ValueError:

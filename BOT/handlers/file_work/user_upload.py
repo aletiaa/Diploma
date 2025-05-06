@@ -3,8 +3,10 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from datetime import datetime
-from ...database.queries import get_connection
-from ...utils.keyboard import user_main_menu_keyboard, confirm_more_keyboard
+from ics import Calendar, Event as IcsEvent
+from io import BytesIO
+from ...database.queries import get_connection, get_all_events, get_event_by_id, reserve_seat
+from ...utils.keyboard import user_main_menu_keyboard
 
 router = Router()
 
@@ -20,6 +22,14 @@ class UploadDocumentStates(StatesGroup):
     waiting_document = State()
     confirming_more = State()
 
+confirm_more_keyboard = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [
+            InlineKeyboardButton(text="Так, ще файл", callback_data="upload_yes"),
+            InlineKeyboardButton(text="Завершити", callback_data="upload_no")
+        ]
+    ]
+)
 
 @router.callback_query(lambda c: c.data == "upload_photo")
 async def start_upload(callback: CallbackQuery, state: FSMContext):
@@ -154,3 +164,4 @@ async def view_my_files(callback: CallbackQuery):
             await callback.message.bot.send_document(chat_id=telegram_id, document=file_id, caption=caption)
 
     await callback.message.answer("⬅️ Повертаємось до меню", reply_markup=user_main_menu_keyboard)
+

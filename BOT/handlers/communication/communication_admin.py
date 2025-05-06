@@ -2,18 +2,19 @@ from aiogram import Router
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+import csv
+from pathlib import Path
 
 from ...utils.keyboard import communication_admin_menu_keyboard
 from ...utils.notify import notify_users_about_chat
-from ...database.queries import get_connection
 
 router = Router()
-
+CHAT_CSV_PATH = Path("chat_links.csv")
 
 class ChatCreationState(StatesGroup):
     choosing_type = State()
     entering_value = State()
-
+    waiting_for_link = State()
 
 @router.callback_query(lambda c: c.data == "admin_communication_menu")
 async def open_admin_communication_menu(callback: CallbackQuery, state: FSMContext):
@@ -23,21 +24,18 @@ async def open_admin_communication_menu(callback: CallbackQuery, state: FSMConte
         parse_mode="HTML"
     )
 
-
-@router.callback_query(lambda c: c.data in ["create_group_chat", "create_specialty_chat", "create_year_chat"])
+@router.callback_query(lambda c: c.data in ["create_specialty_chat", "create_year_chat"])
 async def start_chat_creation(callback: CallbackQuery, state: FSMContext):
     chat_type = callback.data
     await state.update_data(chat_type=chat_type)
 
     prompt = {
-        "create_group_chat": "Введіть назву групи (наприклад: ТВ-12):",
         "create_specialty_chat": "Введіть код спеціальності (наприклад: 122):",
-        "create_year_chat": "Введіть рік вступу:"
+        "create_year_chat": "Введіть рік випуску:"
     }.get(chat_type)
 
     await callback.message.answer(prompt)
     await state.set_state(ChatCreationState.entering_value)
-
 
 @router.message(ChatCreationState.entering_value)
 async def receive_chat_value(message: Message, state: FSMContext):
@@ -45,81 +43,76 @@ async def receive_chat_value(message: Message, state: FSMContext):
     chat_type = data.get("chat_type")
     chat_value = message.text.strip()
 
-    conn = get_connection()
-    cursor = conn.cursor()
+    if not CHAT_CSV_PATH.exists():
+        CHAT_CSV_PATH.write_text("year,link,specialty\n", encoding="utf-8")
 
-    if chat_type == "create_group_chat":
-        chat_key = ("group", chat_value.upper())
-    elif chat_type == "create_specialty_chat":
-        chat_key = ("specialty", chat_value)
-    elif chat_type == "create_year_chat":
-        chat_key = ("enrollment_year", chat_value)
-    else:
-        await message.answer("❌ Невідомий тип чату.")
+    with CHAT_CSV_PATH.open("r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if chat_type == "create_year_chat" and row['year'] == chat_value:
+                await message.answer(f"⚠️ Чат для року {chat_value} вже існує: {row['link']}")
+                await state.clear()
+                return
+            if chat_type == "create_specialty_chat" and row['specialty'] == chat_value:
+                await message.answer(f"⚠️ Чат для спеціальності {chat_value} вже існує: {row['link']}")
+                await state.clear()
+                return
+
+    await state.update_data(chat_value=chat_value)
+    await message.answer("🔗 Введіть посилання на новий чат:")
+    await state.set_state(ChatCreationState.waiting_for_link)
+
+@router.message(ChatCreationState.waiting_for_link)
+async def save_chat_link(message: Message, state: FSMContext):
+    data = await state.get_data()
+    chat_type = data.get("chat_type")
+    chat_value = data.get("chat_value")
+    link = message.text.strip()
+
+    # ✅ ВАЛІДАЦІЯ ПОСИЛАННЯ
+    if not (link.startswith("https://t.me/") or link.startswith("https://telegram.me/")):
+        await message.answer("❌ Посилання повинно починатися з https://t.me/ або https://telegram.me/")
         return
 
-    cursor.execute(
-        "SELECT id FROM communication_chats WHERE chat_type = ? AND match_value = ?",
-        (chat_key[0], chat_key[1])
+    row = {}
+    if chat_type == "create_year_chat":
+        row = {"year": chat_value, "link": link, "specialty": ""}
+    elif chat_type == "create_specialty_chat":
+        row = {"year": "", "link": link, "specialty": chat_value}
+
+    with CHAT_CSV_PATH.open("a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=["year", "link", "specialty"])
+        writer.writerow(row)
+
+    await message.answer(f"✅ Посилання збережено: {link}")
+    await notify_users_about_chat(
+        bot=message.bot,
+        chat_type=chat_type.replace("create_", "").replace("_chat", ""),
+        match_value=chat_value,
+        link=link
     )
-    exists = cursor.fetchone()
-
-    if exists:
-        await message.answer("⚠️ Такий чат вже існує.")
-    else:
-        fake_link = f"https://t.me/joinchat/{chat_key[0]}_{chat_key[1]}_link"
-
-        cursor.execute('''
-            INSERT INTO communication_chats (chat_type, match_value, link, created_by)
-            VALUES (?, ?, ?, ?)
-        ''', (chat_key[0], chat_key[1], fake_link, str(message.from_user.id)))
-        conn.commit()
-
-        await message.answer(f"✅ Чат створено для {chat_key[0]} = {chat_key[1]}")
-        await notify_users_about_chat(
-            bot=message.bot,
-            chat_type=chat_key[0],
-            match_value=chat_key[1],
-            link=fake_link
-        )
-
-    conn.close()
     await state.clear()
-
 
 @router.callback_query(lambda c: c.data == "view_all_chats")
 async def view_all_chats(callback: CallbackQuery, state: FSMContext):
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT id, chat_type, match_value, link FROM communication_chats ORDER BY created_at DESC")
-    chats = cursor.fetchall()
-
-    if not chats:
-        await callback.message.answer("ℹ️ Жодного чату ще не створено.")
+    if not CHAT_CSV_PATH.exists():
+        await callback.message.answer("📭 Ще не збережено жодного чату.")
         return
 
-    for chat_id, chat_type, value, link in chats:
-        if chat_type == "group":
-            cursor.execute("SELECT COUNT(*) FROM users WHERE group_name = ?", (value,))
-        elif chat_type == "enrollment_year":
-            cursor.execute("SELECT COUNT(*) FROM users WHERE enrollment_year = ?", (value,))
-        elif chat_type == "specialty":
-            cursor.execute("SELECT COUNT(*) FROM users WHERE specialty_id = ?", (value,))
-        else:
-            user_count = "?"
-            continue
-        user_count = cursor.fetchone()[0]
+    with CHAT_CSV_PATH.open("r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            description = ""
+            if row["year"]:
+                description += f"🎓 Рік випуску: {row['year']}\n"
+            if row["specialty"]:
+                description += f"🧪 Спеціальність: {row['specialty']}\n"
 
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔗 Перейти до чату", url=link)]
-        ])
-
-        await callback.message.answer(
-            f"📌 <b>Чат:</b> {chat_type} = {value}\n"
-            f"👥 Учасників: <b>{user_count}</b>",
-            parse_mode="HTML",
-            reply_markup=keyboard
-        )
-
-    conn.close()
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔗 Перейти до чату", url=row['link'])]
+            ])
+            await callback.message.answer(
+                f"📌 <b>Чат</b>\n{description}🔗 {row['link']}",
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )

@@ -16,9 +16,10 @@ class EditAdminProfile(StatesGroup):
     editing_phone_number = State()
     editing_password = State()
 
-# 📋 Меню редагування адміністратора (CallbackQuery)
-@router.callback_query(lambda c: c.data == "edit_admin")
+# Меню редагування адміністратора (CallbackQuery)
+@router.callback_query(lambda c: c.data == "admin_data_edit")
 async def show_edit_admin_profile_menu_callback(callback_query: CallbackQuery, state: FSMContext):
+    await callback_query.answer()
     telegram_id = str(callback_query.from_user.id)
 
     conn = get_connection()
@@ -72,25 +73,25 @@ async def back_to_admin_menu(callback_query: CallbackQuery, state: FSMContext):
     await state.clear()
 
 # Обробка вибору поля редагування
-@router.callback_query(lambda c: c.data.startswith("edit_admin_"))
+@router.callback_query(lambda c: c.data.startswith("admin_data_edit_"))
 async def choose_admin_field_to_edit(callback_query: CallbackQuery, state: FSMContext):
     action = callback_query.data
 
-    if action == "edit_admin_full_name":
+    if action == "admin_data_edit_full_name":
         await callback_query.message.answer("Введіть нове ПІБ (2 слова, тільки літери):")
         await state.set_state(EditAdminProfile.editing_full_name)
 
-    elif action == "edit_admin_phone_number":
+    elif action == "admin_data_edit_phone_number":
         await callback_query.message.answer("Введіть новий номер телефону:")
         await state.set_state(EditAdminProfile.editing_phone_number)
 
-    elif action == "edit_admin_password":
+    elif action == "admin_data_edit_password":
         await callback_query.message.answer("Введіть новий пароль:")
         await state.set_state(EditAdminProfile.editing_password)
 
 # ✏️ Зміна ПІБ
 @router.message(EditAdminProfile.editing_full_name)
-async def edit_admin_full_name(message: Message, state: FSMContext):
+async def admin_data_edit_full_name(message: Message, state: FSMContext):
     new_name = message.text.strip()
     if not re.match(r"^[А-Яа-яІіЇїЄєҐґA-Za-z]+ [А-Яа-яІіЇїЄєҐґA-Za-z]+$", new_name):
         await message.answer("❌ Ім'я повинно містити тільки літери і складатися з двох слів. Спробуйте ще раз:")
@@ -107,7 +108,7 @@ async def edit_admin_full_name(message: Message, state: FSMContext):
 
 # 📱 Зміна телефону
 @router.message(EditAdminProfile.editing_phone_number)
-async def edit_admin_phone_number(message: Message, state: FSMContext):
+async def admin_data_edit_phone_number(message: Message, state: FSMContext):
     phone = message.text.strip()
     if not is_valid_phone(phone):
         await message.answer("❌ Неправильний номер. Введіть ще раз:")
@@ -124,7 +125,7 @@ async def edit_admin_phone_number(message: Message, state: FSMContext):
 
 # 🔐 Зміна пароля
 @router.message(EditAdminProfile.editing_password)
-async def edit_admin_password(message: Message, state: FSMContext):
+async def admin_data_edit_password(message: Message, state: FSMContext):
     new_password = message.text.strip()
     if len(new_password) < 4:
         await message.answer("❌ Пароль має бути щонайменше 4 символи. Введіть ще раз:")

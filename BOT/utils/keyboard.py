@@ -53,15 +53,22 @@ edit_profile_keyboard = InlineKeyboardMarkup(
 # --- АДМІН-ПАНЕЛЬ --- #
 admin_main_menu_keyboard = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="Редагувати профіль", callback_data="edit_admin")],
+        [InlineKeyboardButton(text="Редагувати профіль", callback_data="admin_data_edit")],
         [InlineKeyboardButton(text="Робота з новинами", callback_data="news_menu")],
         [InlineKeyboardButton(text="Робота з користувачами", callback_data="user_management_menu")],
         [InlineKeyboardButton(text="Переглянути файли", callback_data="view_uploaded_files")],
         [InlineKeyboardButton(text="Надіслати оголошення", callback_data="send_announcement")],
-        [InlineKeyboardButton(text="Додати подію", callback_data="add_event")],
+        [InlineKeyboardButton(text="Робота з подіями", callback_data="event_admin_menu")],
         [InlineKeyboardButton(text="Спілкування (адмін)", callback_data="admin_communication_menu")]
     ]
 )
+
+limited_admin_menu_keyboard = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="Робота з користувачами", callback_data="user_management_menu")],
+    ]
+)
+
 
 user_management_keyboard = InlineKeyboardMarkup(
     inline_keyboard=[
@@ -88,9 +95,9 @@ news_admin_menu_keyboard = InlineKeyboardMarkup(
 # --- РЕДАГУВАННЯ ПРОФІЛЮ АДМІНА --- #
 edit_admin_profile_keyboard = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="Змінити ПІБ", callback_data="edit_admin_full_name")],
-        [InlineKeyboardButton(text="Змінити номер телефону", callback_data="edit_admin_phone_number")],
-        [InlineKeyboardButton(text="Змінити пароль", callback_data="edit_admin_password")],
+        [InlineKeyboardButton(text="Змінити ПІБ", callback_data="admin_data_edit_full_name")],
+        [InlineKeyboardButton(text="Змінити номер телефону", callback_data="admin_data_edit_phone_number")],
+        [InlineKeyboardButton(text="Змінити пароль", callback_data="admin_data_edit_password")],
         [InlineKeyboardButton(text="⬅️ Назад до головного меню", callback_data="back_to_admin_menu")]
     ]
 )
@@ -134,10 +141,12 @@ communication_user_menu_keyboard = InlineKeyboardMarkup(
     inline_keyboard=[
         [InlineKeyboardButton(text="За групою", callback_data="chat_by_group")],
         [InlineKeyboardButton(text="За спеціальністю", callback_data="chat_by_specialty")],
-        [InlineKeyboardButton(text="За роком вступу", callback_data="chat_by_year")],
+        [InlineKeyboardButton(text="За роком вступу", callback_data="chat_by_enrollment")],
+        [InlineKeyboardButton(text="За роком випуску", callback_data="chat_by_graduation")],
         [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_user_menu")]
     ]
 )
+
 
 def chat_link_button(url: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -177,14 +186,36 @@ pagination_keyboard = InlineKeyboardMarkup(inline_keyboard=[
 ])
 
 # --- МЕНЮ РЕДАГУВАННЯ ПОДІЇ --- #
-def event_edit_menu_keyboard(event_id: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Редагувати назву", callback_data="edit_title")],
-        [InlineKeyboardButton(text="Редагувати опис", callback_data="edit_description")],
-        [InlineKeyboardButton(text="Редагувати дату та час", callback_data="edit_datetime")],
-        [InlineKeyboardButton(text="Редагувати кількість місць", callback_data="edit_seats")],
+event_edit_menu_keyboard = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="Редагувати назву", callback_data="event_edit_title")],
+        [InlineKeyboardButton(text="Редагувати опис", callback_data="event_edit_description")],
+        [InlineKeyboardButton(text="Редагувати дату та час", callback_data="event_edit_datetime")],
+        [InlineKeyboardButton(text="Редагувати кількість місць", callback_data="event_edit_seats")],
         [InlineKeyboardButton(text="Переглянути зареєстрованих", callback_data="view_registered")],
         [InlineKeyboardButton(text="Синхронізувати з базою", callback_data="sync_event")],
         [InlineKeyboardButton(text="Видалити подію", callback_data="confirm_delete_event")],
         [InlineKeyboardButton(text="⬅️ Назад", callback_data="edit_event")]
-    ])
+    ]
+)
+    
+event_admin_menu_keyboard = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="Додати подію", callback_data="add_event")],
+        [InlineKeyboardButton(text="Видалити подію", callback_data="delete_event_menu")],
+        [InlineKeyboardButton(text="Переглянути зареєстрованих", callback_data="choose_event_for_viewing")],
+        [InlineKeyboardButton(text="Синхронізувати з базою", callback_data="sync_event")],
+        [InlineKeyboardButton(text="Обрати подію для синхронізації", callback_data="choose_for_sync")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_admin_menu")]
+    ]
+)
+
+event_filter_menu_keyboard = InlineKeyboardMarkup(
+    inline_keyboard =[
+        [InlineKeyboardButton(text="Завтра", callback_data="event_filter_day_1")],
+        [InlineKeyboardButton(text="Наступний тиждень", callback_data="event_filter_day_7")],
+        [InlineKeyboardButton(text="Цей місяць", callback_data="event_filter_day_30")],
+        [InlineKeyboardButton(text="Всі події", callback_data="event_filter_all")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_user_menu")]
+    ]
+)

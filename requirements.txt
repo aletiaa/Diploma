@@ -15,4 +15,5 @@ tensorflow==2.15.0
 torch==2.2.2
 torchvision==0.17.2
 torchaudio==2.2.2
+transformers==4.41.1
 uvicorn==0.34.0

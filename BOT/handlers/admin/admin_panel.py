@@ -1,4 +1,6 @@
+import secrets
 import sqlite3
+import string
 from aiogram import Router
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
@@ -44,7 +46,7 @@ async def open_user_management_menu(callback_query: CallbackQuery, state: FSMCon
 
 # Після входу – показати адмін-панель
 @router.callback_query(lambda c: c.data == "login_admin_menu")
-async def show_admin_menu(callback: CallbackQuery):
+async def show_admin_menu(callback: CallbackQuery, state: FSMContext):
     telegram_id = str(callback.from_user.id)
     conn = get_connection()
     cursor = conn.cursor()
@@ -191,16 +193,18 @@ async def block_user_confirm(message: Message, state: FSMContext):
 
     await show_admin_menu(message, state)
 
+
 # 🔐 Змінити доступ
 @router.callback_query(lambda c: c.data == "change_access")
 @super_admin_only
-async def change_access_prompt(callback_query: CallbackQuery, state: FSMContext):
+async def change_access_prompt(callback_query: CallbackQuery, state: FSMContext, **kwargs):
     await callback_query.message.answer("📱 Введіть номер телефону користувача, чий доступ потрібно змінити:")
     await state.set_state(AdminPanelStates.waiting_phone_to_change_access)
 
+
 @router.message(AdminPanelStates.waiting_phone_to_change_access)
 @super_admin_only
-async def change_access_level(message: Message, state: FSMContext):
+async def change_access_level(message: Message, state: FSMContext, **kwargs):
     phone = message.text.strip()
     await state.update_data(phone=phone)
     if not user_exists_by_phone(phone):
@@ -210,9 +214,15 @@ async def change_access_level(message: Message, state: FSMContext):
         await message.answer("🔐 Введіть новий рівень доступу ('user', 'admin_limited', 'admin_super'):")
         await state.set_state(AdminPanelStates.waiting_new_access_level)
 
+
+def generate_password(length: int = 8) -> str:
+    characters = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(characters) for _ in range(length))
+
+
 @router.message(AdminPanelStates.waiting_new_access_level)
 @super_admin_only
-async def confirm_access_change(message: Message, state: FSMContext):
+async def confirm_access_change(message: Message, state: FSMContext, **kwargs):
     access = message.text.strip()
     data = await state.get_data()
     phone = data.get("phone")
@@ -222,13 +232,45 @@ async def confirm_access_change(message: Message, state: FSMContext):
         return
 
     conn = sqlite3.connect("alumni.db")
-    c = conn.cursor()
-    c.execute("UPDATE users SET access_level = ? WHERE phone_number = ?", (access, phone))
-    conn.commit()
-    conn.close()
+    cursor = conn.cursor()
 
-    await message.answer(f"✅ Доступ користувача змінено на: {access}")
-    await show_admin_menu(message, state)
+    # Отримуємо telegram_id користувача за номером
+    cursor.execute("SELECT telegram_id, full_name FROM users WHERE phone_number = ?", (phone,))
+    user_row = cursor.fetchone()
+
+    if not user_row:
+        await message.answer("❌ Користувача не знайдено.")
+        conn.close()
+        return
+
+    telegram_id, full_name = user_row
+
+    # Оновлюємо рівень доступу
+    cursor.execute("UPDATE users SET access_level = ? WHERE phone_number = ?", (access, phone))
+
+    if access == "user":
+        cursor.execute("DELETE FROM admins WHERE telegram_id = ?", (telegram_id,))
+        await message.answer("👤 Користувача переведено до звичайних користувачів.")
+    else:
+        cursor.execute("SELECT 1 FROM admins WHERE telegram_id = ?", (telegram_id,))
+        if cursor.fetchone() is None:
+            password = generate_password()
+            cursor.execute(
+                "INSERT INTO admins (telegram_id, phone_number, full_name, password, access_level) VALUES (?, ?, ?, ?, ?)",
+                (telegram_id, phone, full_name, password, access)
+            )
+            await message.bot.send_message(
+                chat_id=telegram_id,
+                text=f"🔐 Вас призначено адміністратором.\nВаш пароль для входу: <code>{password}</code>",
+                parse_mode="HTML"
+            )
+        else:
+            cursor.execute("UPDATE admins SET access_level = ? WHERE telegram_id = ?", (access, telegram_id))
+        conn.commit()
+        conn.close()
+
+        await message.answer(f"✅ Доступ користувача оновлено до: {access}")
+        await show_admin_menu(message, state)
 
 # Перевірка існування користувача за телефоном
 def user_exists_by_phone(phone_number: str) -> bool:

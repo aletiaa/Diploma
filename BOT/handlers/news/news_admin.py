@@ -167,7 +167,7 @@ async def delete_news_confirm(message: Message, state: FSMContext):
     await show_news_menu(message, state)
 
 
-@router.callback_query(lambda c: c.data == "edit_news")
+@router.callback_query(lambda c: c.data == "news_edit")
 async def edit_news_prompt(callback_query: CallbackQuery, state: FSMContext):
     await callback_query.message.answer("✏️ Введіть ID новини для редагування:")
     await state.set_state(NewsStates.waiting_news_id_to_edit)

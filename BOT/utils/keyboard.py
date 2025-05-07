@@ -84,7 +84,7 @@ user_management_keyboard = InlineKeyboardMarkup(
 news_admin_menu_keyboard = InlineKeyboardMarkup(
     inline_keyboard=[
         [InlineKeyboardButton(text="Додати новину", callback_data="add_news")],
-        [InlineKeyboardButton(text="Редагувати новину", callback_data="edit_news")],
+        [InlineKeyboardButton(text="Редагувати новину", callback_data="news_edit")],
         [InlineKeyboardButton(text="Видалити новину", callback_data="delete_news")],
         [InlineKeyboardButton(text="Переглянути новину", callback_data="view_news")],
         [InlineKeyboardButton(text="Всі новини", callback_data="list_news")],
@@ -129,11 +129,10 @@ def news_detail_button(news_id: int) -> InlineKeyboardMarkup:
 # --- МЕНЮ ЧАТІВ --- #
 communication_admin_menu_keyboard = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="Чат за групою", callback_data="create_group_chat")],
-        [InlineKeyboardButton(text="Чат за спеціальністю", callback_data="create_specialty_chat")],
-        [InlineKeyboardButton(text="Чат за роком вступу", callback_data="create_year_chat")],
+        [InlineKeyboardButton(text="Створити чат", callback_data="create_new_chat")],
+        [InlineKeyboardButton(text="Фільтрувати чати", callback_data="communication_filter_chats")],
         [InlineKeyboardButton(text="Переглянути всі чати", callback_data="view_all_chats")],
-        [InlineKeyboardButton(text="⬅️ Назад до адмін-панелі", callback_data="back_to_admin_menu")]
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_admin_menu")]
     ]
 )
 
@@ -219,3 +218,11 @@ event_filter_menu_keyboard = InlineKeyboardMarkup(
         [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_user_menu")]
     ]
 )
+
+filter_chats_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="За групою", callback_data="communication_filter_group")],
+    [InlineKeyboardButton(text="За спеціальністю", callback_data="communication_filter_specialty")],
+    [InlineKeyboardButton(text="За роком вступу", callback_data="communication_filter_enrollment_year")],
+    [InlineKeyboardButton(text="За роком випуску", callback_data="communication_filter_graduation_year")],
+    [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_admin_menu")]
+])

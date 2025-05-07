@@ -7,7 +7,7 @@ from pathlib import Path
 import csv
 
 router = Router()
-CHAT_CSV_PATH = Path("chat_links.csv")
+CHAT_CSV_PATH = Path("BOT/handlers/communication/chat_links.csv")
 
 @router.callback_query(lambda c: c.data == "user_communication_menu")
 async def open_communication_menu(callback: CallbackQuery, state: FSMContext):
